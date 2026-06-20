@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # 🌐 FRONTEND LAYER (Serving React UI via embedded Nginx)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "80:80" # Maps Port 80 of your machine to Port 80 inside the container
+    depends_on:
+      - backend
+    networks:
+      - chatapp-network
+
+  # 💻 BACKEND APPLICATION SERVER (Node.js/Express)
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://mohit_admin:secure_password_123@postgres:5432/chatapp_db?schema=public
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY} # Pulls from your local system shell/.env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chatapp-network
+# 💾 RELATIONAL DATABASE LAYER (PostgreSQL + pgvector)
+  postgres:
+    image: pgvector/pgvector:pg15 # ✅ Fixed official Docker Hub image tag format
+    environment:
+      - POSTGRES_USER=mohit_admin
+      - POSTGRES_PASSWORD=secure_password_123
+      - POSTGRES_DB=chatapp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - chatapp-network
+
+  # ⚡ IN-MEMORY CACHE LAYER (Redis Cluster)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - chatapp-network
+
+# Permanent named allocations for data disk retention
+volumes:
+  postgres-data:
+
+# Isolated software-defined network bridges
+networks:
+  chatapp-network:
+    driver: bridge

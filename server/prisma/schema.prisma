@@ -1,0 +1,85 @@
+// server/prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String           @id @default(uuid())
+  username        String           @unique
+  password        String
+  createdAt       DateTime         @default(now())
+  messages        Message[]
+  rooms           RoomMember[]
+  sessions        Session[] // Tracks active backend-backed web logins
+  deletedMessages DeletedMessage[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Room {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  createdAt DateTime     @default(now())
+  members   RoomMember[]
+}
+
+model RoomMember {
+  id        String   @id @default(uuid())
+  userId    String
+  roomId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roomId])
+}
+
+model Message {
+  id        String                      @id @default(uuid()) // Removed @db.Uuid
+  text      String
+  room      String
+  createdAt DateTime                    @default(now())
+  userId    String
+  user      User                        @relation(fields: [userId], references: [id])
+  embedding Unsupported("vector(768)")?
+
+  readReceipts   ReadReceipt[]
+  deletedByUsers DeletedMessage[]
+}
+
+model ReadReceipt {
+  id        String   @id @default(uuid()) // Removed @db.Uuid
+  messageId String // Changed from String @db.Uuid to regular String
+  userId    String // Changed from String @db.Uuid to regular String
+  status    String
+  updatedAt DateTime @default(now()) @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
+model DeletedMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId]) // Prevents duplicate tracking entries
+}
