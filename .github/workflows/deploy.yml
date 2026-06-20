@@ -1,0 +1,38 @@
+name: Production Deployment Pipeline
+
+on:
+  push:
+    branches: [ main ] # Runs automatically every time you push code changes to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Deploy to AWS EC2 via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.AWS_EC2_HOST }}        # References your secure AWS Server Public IP
+        username: ubuntu
+        key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}    # References the text inside your AWS .pem file
+        script: |
+          # Create app directory if it doesn't exist, otherwise navigate to it
+          if [ ! -d "~/ai-realtime-chat" ]; then
+            git clone https://github.com/mohitkco/ai-realtime-chat.git ~/ai-realtime-chat
+          fi
+          
+          cd ~/ai-realtime-chat
+          
+          # Clean local uncommitted asset variations and pull newest main code
+          git reset --hard HEAD
+          git pull origin main
+          
+          # Generate production environment file using secure repository variables
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          
+          # Force container structures down and run a clean production build background run
+          docker compose down
+          docker compose up --build -d
