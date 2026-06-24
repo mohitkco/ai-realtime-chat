@@ -194,7 +194,7 @@ function Dashboard({ username, onLogout }) {
     setTypingUsers([]); 
     setIsSearchOpen(false); 
     setIsMembersOpen(false); 
-    setIsMobileMenuOpen(false); // Close sidebar overlay on mobile switch select
+    setIsMobileMenuOpen(false); 
     socket.emit("join_room", targetRoomName);
     fetchDirectHistory(targetRoomName);
   };
@@ -207,7 +207,7 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
     setTypingUsers([]); 
     setIsSearchOpen(false); 
-    setIsMobileMenuOpen(false); // Close sidebar overlay on mobile switch select
+    setIsMobileMenuOpen(false); 
     socket.emit("join_room", channelName);
     fetchDirectHistory(channelName);
   };
@@ -341,7 +341,6 @@ function Dashboard({ username, onLogout }) {
           <h2 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-lg text-xs font-black">💬</span> ChatApp
           </h2>
-          {/* Close menu button visible only on mobile navigation views */}
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">✕</button>
         </div>
         
@@ -398,7 +397,7 @@ function Dashboard({ username, onLogout }) {
         <span className="h-2 w-2 min-w-[8px] bg-emerald-500 rounded-full animate-pulse"></span>
       </div>
     </>
-  );
+  ); // 🌟 Closed cleanly here to isolate functional scope blocks!
 
   return (
     <div className="flex h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden">
@@ -448,7 +447,7 @@ function Dashboard({ username, onLogout }) {
                   onClick={() => setIsSearchOpen(!isSearchOpen)} 
                   className={`px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl border transition-all text-[11px] md:text-xs font-bold flex items-center gap-1 shadow-2xs ${isSearchOpen ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
                 >
-                  <span>🔍</span> <span className="hidden sm:inline">Search History</span>
+                  <span>🔍</span> <span className="hidden sm:inline">Search</span>
                 </button>
 
                 {!isPrivateDM && (
@@ -470,9 +469,9 @@ function Dashboard({ username, onLogout }) {
         {/* 📱 MOBILE EXTRA OPERATIONAL ACTION BUTTON ROW */}
         {room && (
           <div className="flex sm:hidden items-center justify-start gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-            <button onClick={handleClearPersonalChat} className="text-[10px] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-3xs">🧹 Clear personal copy</button>
+            <button onClick={handleClearPersonalChat} className="text-[10px] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-3xs">🧹 Clear copy</button>
             {!isPrivateDM && room !== 'general' && (
-              <button onClick={handleExitGroup} className="text-[10px] bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold px-2 py-1 rounded-md border border-red-100 dark:border-red-900/20">🚪 Leave group channel</button>
+              <button onClick={handleExitGroup} className="text-[10px] bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold px-2 py-1 rounded-md border border-red-100 dark:border-red-900/20">🚪 Leave channel</button>
             )}
           </div>
         )}
@@ -615,8 +614,8 @@ function Dashboard({ username, onLogout }) {
                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
                     className="flex-1 bg-transparent px-2 py-1 text-sm outline-none text-slate-800 dark:text-slate-100 min-w-0" 
                   />
-                  <button onClick={toggleListening} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0 ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"}`}>{isListening ? '🛑' : '🎙️'}</button>
-                  <button onClick={sendMessage} className="bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0下">Send</button>
+                  <button onClick={toggleListening} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0 ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"}`}>{isListening ? '🛑' : '🎙'}</button>
+                  <button onClick={sendMessage} className="bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0">Send</button>
                 </div>
               </footer>
             </div>
