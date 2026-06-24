@@ -13,7 +13,7 @@ function App() {
   useEffect(() => {
     const verifySessionCookie = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/me", { credentials: 'include' });
+        const res = await fetch("/api/me", { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setUsername(data.username);

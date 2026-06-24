@@ -8,6 +8,6 @@ module.exports = defineConfig({
   },
   datasource: {
     // Pass your database connection URL straight to the Prisma v7 engine here
-    url: "postgresql://mohit_admin:secure_password_123@localhost:5432/chatapp_db?schema=public",
+    url: "postgresql://mohit_admin:secure_password_123@postgres:5432/chatapp_db?schema=public",
   },
 });
