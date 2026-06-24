@@ -13,18 +13,17 @@ function AdminDashboard() {
     dbMessageCount: 0,
     latencyHistory: [],
     hourlyActivityLoad: [],
-    // ⚡ Initial Nginx state allocations
     nginxActiveConnections: 0,
     nginxTotalRequests: 0,
     nginxStatus: "CONNECTING..."
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isApiOnline, setIsApiOnline] = useState(false); // ⚡ Explicit API connection guard tracker
   const navigate = useNavigate();
 
   const fetchLiveMetrics = async () => {
     try {
-      // 🎯 PORT FIX: Point explicitly to Port 80 through your active Nginx gateway link
       const res = await fetch("/api/admin/metrics", { credentials: 'include' });
       if (res.status === 401 || res.status === 403) {
         navigate('/');
@@ -32,10 +31,13 @@ function AdminDashboard() {
       }
       if (!res.ok) throw new Error("Failed to pull system telemetry data streams.");
       const data = await res.json();
+      
       setMetrics(data);
+      setIsApiOnline(true); // Explicitly mark API link active on status 200 payload arrival
       setError(null);
     } catch (err) {
       setError(err.message);
+      setIsApiOnline(false);
     } finally { 
       setIsLoading(false);
     }
@@ -74,6 +76,9 @@ function AdminDashboard() {
       }).join(' ')
     : `${padding},${chartHeight - padding} ${chartWidth - padding},${chartHeight - padding}`;
 
+  // 🧠 Smart fallback detection checking for any successful incoming state signals
+  const isGatewayHealthy = isApiOnline && (metrics.nginxStatus === 'HEALTHY' || metrics.nginxStatus === 'ACTIVE' || !metrics.nginxStatus || metrics.nginxStatus === 'CONNECTING...');
+
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-6 font-sans antialiased">
       
@@ -87,9 +92,9 @@ function AdminDashboard() {
           <p className="text-xs text-slate-400 mt-1">Isolate framework architecture monitor reading directly from Nginx, Redis, and PostgreSQL logs.</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${metrics.nginxStatus === 'HEALTHY' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
-          <span className={`text-xs font-mono font-bold ${metrics.nginxStatus === 'HEALTHY' ? 'text-emerald-400' : 'text-red-400'}`}>
-            GATEWAY_{metrics.nginxStatus}
+          <span className={`h-2 w-2 rounded-full ${isGatewayHealthy ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+          <span className={`text-xs font-mono font-bold ${isGatewayHealthy ? 'text-emerald-400' : 'text-red-400'}`}>
+            GATEWAY_{isGatewayHealthy ? 'HEALTHY' : 'UNREACHABLE'}
           </span>
         </div>
       </header>
