@@ -8,6 +8,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80" # Maps Port 80 of your machine to Port 80 inside the container
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
     depends_on:
       - backend
     networks:
