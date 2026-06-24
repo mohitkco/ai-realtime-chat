@@ -300,7 +300,6 @@ function Dashboard({ username, onLogout }) {
     socket.emit("delete_message", { messageId, room, senderName: username });
   };
 
-  // 🎙️ Lazily instantiate the constructor on a real tap interaction to keep mobile webkit happy
   const toggleListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Microphone API not supported on this mobile browser architecture.");
@@ -340,7 +339,6 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
   };
 
-  // Reusable Component Sidebar layout block configuration logic
   const renderSidebarContent = () => (
     <>
       <div className="overflow-y-auto flex-1">
@@ -409,19 +407,19 @@ function Dashboard({ username, onLogout }) {
   return (
     <div className="flex h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden">
       
-      {/* 🖥️ DESKTOP PERMANENT SIDEBAR (Hidden on mobile screens, structural grid on desktop) */}
+      {/* 🖥️ DESKTOP PERMANENT SIDEBAR */}
       <aside className="w-64 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 flex flex-col justify-between border-r border-slate-200 dark:border-slate-800 hidden md:flex transition-colors duration-300">
         {renderSidebarContent()}
       </aside>
 
-      {/* 📱 MOBILE INLINE HOME NAV SIDEBAR (Fixes the mobile layout collapse. Visible ONLY on phone views when no room is open) */}
+      {/* 📱 MOBILE INLINE HOME NAV SIDEBAR */}
       {!room && (
         <aside className="w-full h-full bg-white dark:bg-slate-950 flex flex-col justify-between md:hidden">
           {renderSidebarContent()}
         </aside>
       )}
 
-      {/* 📱 MOBILE NAVIGATION DRAWER OVERLAY (Used to seamlessly jump across chats when inside an active chat session) */}
+      {/* 📱 MOBILE OVERLAY DRAWER PANEL SIDEBAR */}
       <div className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
         <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)}></div>
         <aside className={`absolute top-0 left-0 bottom-0 w-72 max-w-[80vw] bg-white dark:bg-slate-950 flex flex-col justify-between border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -434,7 +432,6 @@ function Dashboard({ username, onLogout }) {
         
         <header className="flex items-center justify-between px-4 md:px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 gap-2">
           <div className="flex items-center gap-2 truncate">
-            {/* Mobile Nav Control Toggles */}
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">☰</button>
             {room && (
               <button onClick={() => setRoom(null)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">←</button>
