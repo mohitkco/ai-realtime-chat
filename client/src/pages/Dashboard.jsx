@@ -12,7 +12,8 @@ function Dashboard({ username, onLogout }) {
   const [activeChatLabel, setActiveChatLabel] = useState("");
   const [isPrivateDM, setIsPrivateDM] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false); 
-  const [isMembersOpen, setIsMembersOpen] = useState(false); // 👥 Controls right sidebar membership list state
+  const [isMembersOpen, setIsMembersOpen] = useState(false); 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 📱 Tracks mobile slide-out nav state
   
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
@@ -35,11 +36,9 @@ function Dashboard({ username, onLogout }) {
   const typingTimeoutRef = useRef(null); 
   const navigate = useNavigate();
 
-  // Find user details locally to resolve ID matches matching usernames
   const currentUserObj = allUsers.find(u => u.username === username);
   const currentUserId = currentUserObj ? currentUserObj.id : null;
 
-  // Resolve current active group channel entity object metadata
   const cleanGroupName = activeChatLabel.replace('# ', '');
   const currentChannelObj = channels.find(c => c.name === cleanGroupName);
 
@@ -99,7 +98,6 @@ function Dashboard({ username, onLogout }) {
       setChatHistory((prev) => prev.filter((msg) => msg.id !== data.messageId));
     });
 
-    // 🎯 REAL-TIME BROADCAST LISTENER: Wipes channel from sidebars instantly across tabs
     socket.on("room_deleted", (data) => {
       setChannels((prev) => prev.filter(c => c.name !== data.roomName));
       if (room === data.roomName) {
@@ -110,12 +108,10 @@ function Dashboard({ username, onLogout }) {
       }
     });
 
-    // 🎯 REAL-TIME BROADCAST LISTENER: Triggers background metadata re-sync for remaining members
     socket.on("room_membership_updated", () => {
       fetchWorkspaceData();
     });
 
-    // 🎯 REAL-TIME FLASH DISPATCH LISTENER: Instantly wipes screen data logs if Admin triggers terminal cleanup
     socket.on("system_purge_event", () => {
       setChatHistory([]);
       setAiSuggestions([]);
@@ -138,7 +134,6 @@ function Dashboard({ username, onLogout }) {
             }
             return { ...msg, readReceipts: receipts };
           }
-          return msg;
           return msg;
         })
       );
@@ -166,7 +161,7 @@ function Dashboard({ username, onLogout }) {
       socket.off("system_purge_event");
       socket.off("message_status_updated");
     };
-  }, [room]); // 🎯 Monitored room boundary updates
+  }, [room]);
 
   useEffect(() => { 
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); 
@@ -199,6 +194,7 @@ function Dashboard({ username, onLogout }) {
     setTypingUsers([]); 
     setIsSearchOpen(false); 
     setIsMembersOpen(false); 
+    setIsMobileMenuOpen(false); // Close sidebar overlay on mobile switch select
     socket.emit("join_room", targetRoomName);
     fetchDirectHistory(targetRoomName);
   };
@@ -211,6 +207,7 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
     setTypingUsers([]); 
     setIsSearchOpen(false); 
+    setIsMobileMenuOpen(false); // Close sidebar overlay on mobile switch select
     socket.emit("join_room", channelName);
     fetchDirectHistory(channelName);
   };
@@ -218,11 +215,8 @@ function Dashboard({ username, onLogout }) {
   const handleInputChange = (e) => {
     setMessage(e.target.value);
     if (!room) return;
-
     socket.emit('typing', { room, username });
-
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('stop_typing', { room, username });
     }, 2000);
@@ -272,7 +266,6 @@ function Dashboard({ username, onLogout }) {
 
     try {
       const cleanRoomName = room.replace('#', '').trim();
-
       const res = await fetch(`/api/rooms/${cleanRoomName}/exit`, {
         method: "POST",
         credentials: 'include'
@@ -287,42 +280,26 @@ function Dashboard({ username, onLogout }) {
       setActiveChatLabel("");
       setChatHistory([]);
       setIsMembersOpen(false);
-
       setChannels((prevChannels) => prevChannels.filter(c => c.name !== cleanRoomName));
-      
-      const roomsRes = await fetch("/api/rooms", { credentials: 'include' });
-      if (roomsRes.ok) {
-        const freshRooms = await roomsRes.json();
-        if (Array.isArray(freshRooms)) {
-          setChannels(freshRooms.filter(c => c.name !== cleanRoomName));
-        }
-      }
     } catch (err) {
       alert(err.message);
     }
   };
 
-  // 🎯 THE WHATSAPP INDEPENDENT CLEAR ACTION HOOK
   const handleClearPersonalChat = async () => {
     if (!room) return;
-    if (!window.confirm(`⚠️ Clear your personal copy of chat history for room #${room}?\n\nThis will NOT delete messages for the other conversation members.`)) return;
-
+    if (!window.confirm(`⚠️ Clear history for room #${room}?`)) return;
     try {
       const cleanRoomName = room.replace('#', '').trim();
-
       const res = await fetch(`/api/rooms/${cleanRoomName}/clear-personal`, {
         method: "POST",
         credentials: 'include'
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to clear personal history.");
-
+      if (!res.ok) throw new Error("Failed to clear personal history.");
       setChatHistory([]);
       setAiSuggestions([]);
-      alert("🧹 Personal canvas cleared. Other users still retain their independent copies.");
     } catch (err) {
-      alert(`Operation Failure: ${err.message}`);
+      alert(err.message);
     }
   };
 
@@ -356,146 +333,167 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
   };
 
-  return (
-    <div className="flex h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-300">
-      
-      {/* SIDEBAR PANEL */}
-      <aside className="w-66 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 flex flex-col justify-between border-r border-slate-200 dark:border-slate-800 hidden md:flex transition-colors duration-300">
-        <div className="overflow-y-auto flex-1">
-          <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800">
-            <h2 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-lg text-xs font-black">💬</span> ChatApp
-            </h2>
-          </div>
-          
-          <div className="p-4 space-y-6">
-            <button 
-              onClick={() => setIsModalOpen(true)} 
-              className="w-full py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-all flex items-center justify-center gap-2 shadow-2xs"
-            >
-              <span>➕</span> Create New Group
-            </button>
+  // Reusable Component Sidebar layout block configuration logic
+  const renderSidebarContent = () => (
+    <>
+      <div className="overflow-y-auto flex-1">
+        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <h2 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-lg text-xs font-black">💬</span> ChatApp
+          </h2>
+          {/* Close menu button visible only on mobile navigation views */}
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">✕</button>
+        </div>
+        
+        <div className="p-4 space-y-6">
+          <button 
+            onClick={() => { setIsModalOpen(true); setIsMobileMenuOpen(false); }} 
+            className="w-full py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-all flex items-center justify-center gap-2 shadow-2xs"
+          >
+            <span>➕</span> Create New Group
+          </button>
 
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 mb-2">📁 My Group Channels</p>
-              <nav className="space-y-1">
-                {channels.map((ch) => (
-                  <button key={ch.id || ch.name} onClick={() => handleSelectGroupChannel(ch.name)} className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${(!isPrivateDM && room === ch.name) ? "bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-white font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400"}`}>
-                    <span className="text-slate-400 dark:text-slate-500 font-mono">#</span>{ch.name}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 mb-2">📁 My Group Channels</p>
+            <nav className="space-y-1">
+              {channels.map((ch) => (
+                <button key={ch.id || ch.name} onClick={() => handleSelectGroupChannel(ch.name)} className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-left transition-all ${(!isPrivateDM && room === ch.name) ? "bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-white font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400"}`}>
+                  <span className="text-slate-400 dark:text-slate-500 font-mono">#</span>{ch.name}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 mb-2">👤 Direct Messages</p>
+            <div className="space-y-1">
+              {allUsers.map((u) => {
+                if (u.username === username) return null;
+                const isSelectedDM = isPrivateDM && activeChatLabel.includes(u.username);
+                const isUserOnline = onlineUsers.includes(u.username);
+
+                return (
+                  <button key={u.id} onClick={() => handleSelectUserDM(u.username)} className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm font-medium text-left transition-all ${isSelectedDM ? "bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-white font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400"}`}>
+                    <div className="flex items-center gap-2.5 truncate">
+                      <span className={`h-2 w-2 rounded-full flex-shrink-0 transition-colors duration-300 ${isUserOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-700"}`}></span>
+                      <span className="truncate">{u.username}</span>
+                    </div>
+                    {isUserOnline && <span className="text-[9px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-sm">LIVE</span>}
                   </button>
-                ))}
-              </nav>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 mb-2">👤 Direct Messages</p>
-              <div className="space-y-1">
-                {allUsers.map((u) => {
-                  if (u.username === username) return null;
-                  const isSelectedDM = isPrivateDM && activeChatLabel.includes(u.username);
-                  const isUserOnline = onlineUsers.includes(u.username);
-
-                  return (
-                    <button key={u.id} onClick={() => handleSelectUserDM(u.username)} className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm font-medium text-left transition-all ${isSelectedDM ? "bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-white font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400"}`}>
-                      <div className="flex items-center gap-2.5 truncate">
-                        <span className={`h-2 w-2 rounded-full flex-shrink-0 transition-colors duration-300 ${isUserOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-700"}`}></span>
-                        <span className="truncate">{u.username}</span>
-                      </div>
-                      {isUserOnline && <span className="text-[9px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-sm">LIVE</span>}
-                    </button>
-                  );
-                })}
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold uppercase">{username.charAt(0)}</div>
-            <div>
-              <p className="text-xs font-bold text-slate-800 dark:text-white leading-tight truncate max-w-[100px]">{username} (You)</p>
-              <button onClick={handleLogoutSubmit} className="text-[10px] text-red-500 font-bold hover:underline block text-left">Log Out</button>
-            </div>
+      <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 truncate mr-1">
+          <div className="h-8 w-8 min-w-[32px] rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold uppercase">{username.charAt(0)}</div>
+          <div className="truncate">
+            <p className="text-xs font-bold text-slate-800 dark:text-white leading-tight truncate">{username} (You)</p>
+            <button onClick={handleLogoutSubmit} className="text-[10px] text-red-500 font-bold hover:underline block text-left">Log Out</button>
           </div>
-          <span className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
         </div>
+        <span className="h-2 w-2 min-w-[8px] bg-emerald-500 rounded-full animate-pulse"></span>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden">
+      
+      {/* 🖥️ DESKTOP PERMANENT SIDEBAR */}
+      <aside className="w-64 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 flex flex-col justify-between border-r border-slate-200 dark:border-slate-800 hidden md:flex transition-colors duration-300">
+        {renderSidebarContent()}
       </aside>
 
-      {/* CORE CHAT ENGINE HUBS */}
-      <div className="flex flex-col flex-1 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <h1 className="text-md font-bold text-slate-900 dark:text-white tracking-wide">
+      {/* 📱 MOBILE OVERLAY DRAWER PANEL SIDEBAR */}
+      <div className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}>
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <aside className={`absolute top-0 left-0 bottom-0 w-72 max-w-[80vw] bg-white dark:bg-slate-950 flex flex-col justify-between border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 transform ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          {renderSidebarContent()}
+        </aside>
+      </div>
+
+      {/* CORE CHAT HUB WINDOW WRAPPER LAYER */}
+      <div className={`flex flex-col flex-1 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden ${!room ? "hidden md:flex" : "flex"}`}>
+        
+        <header className="flex items-center justify-between px-4 md:px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 gap-2">
+          <div className="flex items-center gap-2 truncate">
+            {/* Mobile Nav Control Toggles */}
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">☰</button>
+            {room && (
+              <button onClick={() => setRoom(null)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">←</button>
+            )}
+            
+            <h1 className="text-sm md:text-md font-bold text-slate-900 dark:text-white tracking-wide truncate">
               {room ? activeChatLabel : "👋 Welcome to ChatApp"}
             </h1>
             
-            {/* UTILITY CONTROL ROW FOR ACTIVE CHANNELS */}
             {room && (
-              <div className="flex items-center gap-2 ml-2">
-                {/* 🧹 DISCRETE CLEAR BUTTON TRIGGERING INDEPENDENT DATA BOUNDARIES */}
-                <button 
-                  onClick={handleClearPersonalChat} 
-                  className="text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-2.5 py-1 rounded-md transition-all border border-slate-200 dark:border-slate-700 shadow-3xs"
-                  title="Clear history view for myself only"
-                >
-                  🧹 Clear Chat
-                </button>
-
+              <div className="hidden sm:flex items-center gap-1.5 ml-2">
+                <button onClick={handleClearPersonalChat} className="text-[11px] bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-2 py-0.5 rounded-md transition-all border border-slate-200 dark:border-slate-700 shadow-3xs">🧹 Clear</button>
                 {!isPrivateDM && room !== 'general' && (
-                  <button onClick={handleExitGroup} className="text-xs bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold px-2.5 py-1 rounded-md transition-all border border-red-100 dark:border-red-900/30">
-                    🚪 Leave Group
-                  </button>
+                  <button onClick={handleExitGroup} className="text-[11px] bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold px-2 py-0.5 rounded-md transition-all border border-red-100 dark:border-red-900/30">🚪 Leave</button>
                 )}
               </div>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             {room && (
               <>
                 <button 
                   onClick={() => setIsSearchOpen(!isSearchOpen)} 
-                  className={`px-3 py-2 rounded-xl border transition-all text-xs font-bold flex items-center gap-1.5 shadow-2xs ${isSearchOpen ? "bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                  className={`px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl border transition-all text-[11px] md:text-xs font-bold flex items-center gap-1 shadow-2xs ${isSearchOpen ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
                 >
-                  <span>🔍</span> Search History
+                  <span>🔍</span> <span className="hidden sm:inline">Search History</span>
                 </button>
 
-                {/* 👥 GROUP MEMBER SIDE PANEL DRAWER TOGGLE TRIGGER */}
                 {!isPrivateDM && (
                   <button 
                     onClick={() => setIsMembersOpen(!isMembersOpen)} 
-                    className={`px-3 py-2 rounded-xl border transition-all text-xs font-bold flex items-center gap-1.5 shadow-2xs ${isMembersOpen ? "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                    className={`px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl border transition-all text-[11px] md:text-xs font-bold flex items-center gap-1 shadow-2xs ${isMembersOpen ? "bg-emerald-600 border-emerald-600 text-white" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
                   >
-                    <span>👥</span> Members ({currentChannelObj && currentChannelObj.members ? currentChannelObj.members.length : 0})
+                    <span>👥</span> <span className="hidden sm:inline">Members</span> ({currentChannelObj && currentChannelObj.members ? currentChannelObj.members.length : 0})
                   </button>
                 )}
               </>
             )}
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-sm">
-              {darkMode ? '☀️ Light' : '🌙 Dark'}
+            <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 md:p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs md:text-sm">
+              {darkMode ? '☀️' : '🌙'}
             </button>
           </div>
         </header>
+
+        {/* 📱 MOBILE EXTRA OPERATIONAL ACTION BUTTON ROW */}
+        {room && (
+          <div className="flex sm:hidden items-center justify-start gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+            <button onClick={handleClearPersonalChat} className="text-[10px] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-3xs">🧹 Clear personal copy</button>
+            {!isPrivateDM && room !== 'general' && (
+              <button onClick={handleExitGroup} className="text-[10px] bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold px-2 py-1 rounded-md border border-red-100 dark:border-red-900/20">🚪 Leave group channel</button>
+            )}
+          </div>
+        )}
 
         {!room ? (
           <main className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-slate-50/50 dark:bg-slate-950/40">
             <div className="h-16 w-16 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center text-3xl shadow-sm animate-bounce">💬</div>
             <h2 className="text-xl font-extrabold text-slate-800 dark:text-white">Hello, {username}!</h2>
             <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-              Select a room from **My Group Channels** or choose a colleague under **Direct Messages** to start an encrypted real-time chat session.
+              Open the toggle menu drawer button or select a workspace channel in the sidebar layout column parameters to access secure AI real-time chats.
             </p>
           </main>
         ) : (
           <div className="flex flex-1 overflow-hidden w-full relative">
             
-            {/* CORE CHAT SCREEN VIEWPORT CONTAINER COLUMN */}
             <div className="flex flex-col flex-1 h-full relative overflow-hidden">
-              <main className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-950/40 space-y-4">
+              <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50 dark:bg-slate-950/40 space-y-4">
                 {chatHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-600">
-                    <p className="text-sm font-semibold">Secure conversation framework active.</p>
-                    <p className="text-[11px] text-slate-400">Say hello to initialize real-time data sync channels.</p>
+                    <p className="text-xs md:text-sm font-semibold">Secure conversation framework active.</p>
+                    <p className="text-[10px] md:text-[11px] text-slate-400">Say hello to initialize real-time data sync channels.</p>
                   </div>
                 ) : (
                   chatHistory.map((msg, index) => {
@@ -532,26 +530,17 @@ function Dashboard({ username, onLogout }) {
                         <div className="flex items-center gap-2 mb-1 px-1">
                           <span className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold">{isMe ? "You" : msg.user?.name}</span>
                           {isMe && msg.id && (
-                            <button onClick={() => handleDeleteMessage(msg.id)} className="opacity-0 group-hover/msg:opacity-100 text-slate-400 hover:text-red-500 text-xs transition-all duration-150 pl-1" title="Delete Message for Everyone">
+                            <button onClick={() => handleDeleteMessage(msg.id)} className="opacity-0 group-hover/msg:opacity-100 text-slate-400 hover:text-red-500 text-xs transition-all duration-150 pl-1">
                               🗑️
                             </button>
                           )}
                         </div>
                         <div className="flex items-end gap-1.5">
-                          <div className={`max-w-md px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-xs ${isMe ? "bg-indigo-600 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700/60 rounded-tl-none"}`}>
+                          <div className={`max-w-[75vw] md:max-w-md px-3.5 py-2 rounded-2xl text-sm leading-relaxed shadow-xs ${isMe ? "bg-indigo-600 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700/60 rounded-tl-none"}`}>
                             {msg.text}
                           </div>
                           {isMe && (
-                            <span 
-                              className={`text-[11px] font-black tracking-tighter select-none transition-colors duration-200 ${
-                                isSeenByEveryone 
-                                  ? "text-sky-500" 
-                                  : isSeenBySomeone 
-                                    ? "text-slate-400 dark:text-slate-500" 
-                                    : "text-slate-200 dark:text-slate-700"
-                              }`}
-                              title={isPrivateDM ? (isSeenByEveryone ? "Read" : "Delivered") : `Read by ${uniqueReadersCount} of ${expectedRecipientsCount} recipients`}
-                            >
+                            <span className={`text-[11px] font-black tracking-tighter select-none transition-colors duration-200 ${isSeenByEveryone ? "text-sky-500" : isSeenBySomeone ? "text-slate-400" : "text-slate-200 dark:text-slate-700"}`}>
                               {isSeenBySomeone ? "✓✓" : "✓"}
                             </span>
                           )}
@@ -562,7 +551,7 @@ function Dashboard({ username, onLogout }) {
                 )}
 
                 {typingUsers.length > 0 && (
-                  <div className="flex flex-col items-start space-y-1 animate-in fade-in duration-200 mt-2 sticky bottom-0 bg-gradient-to-t from-slate-50/90 to-transparent py-1 dark:from-slate-950/90 z-10">
+                  <div className="flex flex-col items-start space-y-1 mt-2 sticky bottom-0 bg-gradient-to-t from-slate-50/90 to-transparent py-1 dark:from-slate-950/90 z-10">
                     <div className="flex items-center gap-1.5 px-1">
                       <span className="text-[11px] text-indigo-500 font-bold">
                         {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing
@@ -578,14 +567,14 @@ function Dashboard({ username, onLogout }) {
                 <div ref={chatEndRef} />
               </main>
 
-              <footer className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between gap-2 px-1">
+              <footer className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Reply Mood:</span>
+                    <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Mood:</span>
                     <select 
                       value={chosenMood} 
                       onChange={(e) => setChosenMood(e.target.value)}
-                      className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 font-semibold outline-none text-slate-700 dark:text-slate-300 focus:ring-1 focus:ring-indigo-500"
+                      className="text-[11px] md:text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-0.5 md:px-2 md:py-1 font-semibold outline-none text-slate-700 dark:text-slate-300"
                     >
                       <option value="Professional & Technical">💼 Professional</option>
                       <option value="Casual & Friendly">🤝 Casual</option>
@@ -597,19 +586,19 @@ function Dashboard({ username, onLogout }) {
                   <button 
                     onClick={handleRequestAiSuggestions} 
                     disabled={isAiLoading}
-                    className="text-[11px] font-black tracking-wide text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100/70 border border-indigo-100 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-all disabled:opacity-50"
+                    className="text-[10px] md:text-[11px] font-black tracking-wide text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 px-2.5 py-1 rounded-md transition-all disabled:opacity-50"
                   >
-                    {isAiLoading ? "✨ Thinking..." : "✨ Suggest Replies"}
+                    {isAiLoading ? "✨ Thinking..." : "✨ AI Suggestions"}
                   </button>
                 </div>
 
                 {aiSuggestions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pb-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="flex flex-nowrap overflow-x-auto gap-2 pb-1 scrollbar-none">
                     {aiSuggestions.map((suggestion, idx) => (
                       <button 
                         key={idx}
                         onClick={() => setMessage(suggestion)}
-                        className="text-xs font-medium bg-slate-50 hover:bg-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-600 text-slate-600 dark:text-slate-200 hover:text-white dark:hover:text-white border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full text-left max-w-full truncate transition-all duration-100 active:scale-95"
+                        className="text-xs font-medium bg-slate-50 hover:bg-indigo-600 dark:bg-slate-800 dark:hover:bg-indigo-600 text-slate-600 dark:text-slate-200 hover:text-white border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-all"
                       >
                         {suggestion}
                       </button>
@@ -617,24 +606,24 @@ function Dashboard({ username, onLogout }) {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl p-2 border border-slate-200/60 dark:border-slate-700 focus-within:ring-4 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-950/40">
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl p-1.5 border border-slate-200/60 dark:border-slate-700">
                   <input 
                     type="text" 
-                    placeholder={`Type message here...`} 
+                    placeholder="Type message here..." 
                     value={message} 
                     onChange={handleInputChange} 
                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
-                    className="flex-1 bg-transparent px-3 py-1.5 text-sm outline-none text-slate-800 dark:text-slate-100" 
+                    className="flex-1 bg-transparent px-2 py-1 text-sm outline-none text-slate-800 dark:text-slate-100 min-w-0" 
                   />
-                  <button onClick={toggleListening} className={`px-4 py-2 rounded-lg text-xs font-bold ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"}`}>{isListening ? '🛑 Stop' : '🎙️ Speak'}</button>
-                  <button onClick={sendMessage} className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-xs font-bold">Send</button>
+                  <button onClick={toggleListening} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0 ${isListening ? "bg-red-500 text-white animate-pulse" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300"}`}>{isListening ? '🛑' : '🎙️'}</button>
+                  <button onClick={sendMessage} className="bg-indigo-600 text-white px-3.5 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0下">Send</button>
                 </div>
               </footer>
             </div>
 
-            {/* 👥 INDEPENDENT SIDEBAR DRAWER PANEL DISCOVERING MEMBERS OF THE CHAT ROOM CHANNEL */}
+            {/* 👥 RESPONSIVE CHANNEL MEMBERS ASIDE SIDEBAR */}
             {isMembersOpen && !isPrivateDM && currentChannelObj && (
-              <aside className="w-60 h-full bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-200 z-20">
+              <aside className="absolute md:static right-0 top-0 bottom-0 w-60 h-full bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col z-30 shadow-xl md:shadow-none animate-in slide-in-from-right duration-200">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Channel Members</h3>
                   <button onClick={() => setIsMembersOpen(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white">✕</button>
@@ -647,26 +636,19 @@ function Dashboard({ username, onLogout }) {
                       u.id === memberLink.user?.id ||
                       u.username === memberLink.user?.username
                     );
-                    
                     if (!userDetail) return null;
 
                     const isMemberOnline = onlineUsers.includes(userDetail.username);
                     const isSelf = userDetail.username === username;
 
                     return (
-                      <div 
-                        key={memberLink.id} 
-                        className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200/40 dark:border-slate-700/40 shadow-3xs"
-                      >
+                      <div key={memberLink.id} className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800/50 border border-slate-200/40 dark:border-slate-700/40 shadow-3xs">
                         <div className="flex items-center gap-2 truncate">
-                          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${isMemberOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-600"}`}></span>
+                          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${isMemberOnline ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}`}></span>
                           <span className="text-xs font-semibold truncate text-slate-700 dark:text-slate-200">
                             {userDetail.username} {isSelf && <span className="text-[10px] text-slate-400 font-normal">(You)</span>}
                           </span>
                         </div>
-                        {isMemberOnline && (
-                          <span className="text-[8px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 font-black px-1.5 py-0.5 rounded-sm tracking-wide">ONLINE</span>
-                        )}
                       </div>
                     );
                   })}
@@ -678,19 +660,8 @@ function Dashboard({ username, onLogout }) {
         )}
       </div>
 
-      <SearchDrawer 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-        roomName={room} 
-      />
-
-      <CreateGroupModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        allUsers={allUsers} 
-        currentUsername={username} 
-        onCreateGroup={handleCreateGroupSubmit} 
-      />
+      <SearchDrawer isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} roomName={room} />
+      <CreateGroupModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} allUsers={allUsers} currentUsername={username} onCreateGroup={handleCreateGroupSubmit} />
     </div>
   );
 }
