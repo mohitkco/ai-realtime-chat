@@ -1,7 +1,7 @@
 // src/pages/AuthPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
 function AuthPage({ onLoginSuccess }) {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [inputUsername, setInputUsername] = useState("");
@@ -16,7 +16,7 @@ function AuthPage({ onLoginSuccess }) {
 
     try {
       // credentials: 'include' forces the browser to accept and store the incoming HttpOnly session cookie
-      const res = await fetch(`http://localhost:8080${endpoint}`, {
+      const res = await fetch(`${baseUrl}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: inputUsername.trim(), password: inputPassword }),

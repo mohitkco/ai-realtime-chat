@@ -25,7 +25,7 @@ function AdminDashboard() {
   const fetchLiveMetrics = async () => {
     try {
       // 🎯 PORT FIX: Point explicitly to Port 80 through your active Nginx gateway link
-      const res = await fetch("http://localhost/api/admin/metrics", { credentials: 'include' });
+      const res = await fetch("/api/admin/metrics", { credentials: 'include' });
       if (res.status === 401 || res.status === 403) {
         navigate('/');
         return;

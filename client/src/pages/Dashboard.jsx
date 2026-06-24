@@ -5,7 +5,7 @@ import io from 'socket.io-client';
 import CreateGroupModal from '../components/CreateGroupModal';
 import SearchDrawer from '../components/SearchDrawer';
 
-const socket = io.connect("http://localhost", { withCredentials: true });
+const socket = io({ withCredentials: true });
 
 function Dashboard({ username, onLogout }) {
   const [room, setRoom] = useState(null);
@@ -46,8 +46,8 @@ function Dashboard({ username, onLogout }) {
   const fetchWorkspaceData = async () => {
     try {
       const [roomsRes, usersRes] = await Promise.all([
-        fetch("http://localhost/api/rooms", { credentials: 'include' }),
-        fetch("http://localhost/api/users", { credentials: 'include' })
+        fetch("/api/rooms", { credentials: 'include' }),
+        fetch("/api/users", { credentials: 'include' })
       ]);
       if (roomsRes.status === 401) { onLogout(); navigate('/'); return; }
       
@@ -175,7 +175,7 @@ function Dashboard({ username, onLogout }) {
   const fetchDirectHistory = async (targetRoom) => {
     if (!targetRoom) return;
     try {
-      const res = await fetch(`http://localhost/api/messages/${targetRoom}`, { credentials: 'include' });
+      const res = await fetch(`/api/messages/${targetRoom}`, { credentials: 'include' });
       if (res.ok) {
         const history = await res.json();
         setChatHistory(Array.isArray(history) ? history : []);
@@ -232,7 +232,7 @@ function Dashboard({ username, onLogout }) {
     if (!room) return;
     setIsAiLoading(true);
     try {
-      const res = await fetch("http://localhost/api/ai/suggest", {
+      const res = await fetch("/api/ai/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomName: room, mood: chosenMood }),
@@ -250,7 +250,7 @@ function Dashboard({ username, onLogout }) {
 
   const handleCreateGroupSubmit = async (groupName, selectedUserIds) => {
     try {
-      const res = await fetch("http://localhost/api/rooms", {
+      const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: groupName, invitedUserIds: selectedUserIds }),
@@ -273,7 +273,7 @@ function Dashboard({ username, onLogout }) {
     try {
       const cleanRoomName = room.replace('#', '').trim();
 
-      const res = await fetch(`http://localhost/api/rooms/${cleanRoomName}/exit`, {
+      const res = await fetch(`/api/rooms/${cleanRoomName}/exit`, {
         method: "POST",
         credentials: 'include'
       });
@@ -290,7 +290,7 @@ function Dashboard({ username, onLogout }) {
 
       setChannels((prevChannels) => prevChannels.filter(c => c.name !== cleanRoomName));
       
-      const roomsRes = await fetch("http://localhost/api/rooms", { credentials: 'include' });
+      const roomsRes = await fetch("/api/rooms", { credentials: 'include' });
       if (roomsRes.ok) {
         const freshRooms = await roomsRes.json();
         if (Array.isArray(freshRooms)) {
@@ -310,7 +310,7 @@ function Dashboard({ username, onLogout }) {
     try {
       const cleanRoomName = room.replace('#', '').trim();
 
-      const res = await fetch(`http://localhost/api/rooms/${cleanRoomName}/clear-personal`, {
+      const res = await fetch(`/api/rooms/${cleanRoomName}/clear-personal`, {
         method: "POST",
         credentials: 'include'
       });
@@ -339,7 +339,7 @@ function Dashboard({ username, onLogout }) {
 
   const handleLogoutSubmit = async () => {
     try {
-      await fetch("http://localhost/api/logout", { method: "POST", credentials: 'include' });
+      await fetch("/api/logout", { method: "POST", credentials: 'include' });
       onLogout();
       navigate('/');
     } catch (err) {
