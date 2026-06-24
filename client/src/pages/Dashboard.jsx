@@ -1,11 +1,15 @@
-// src/pages/Dashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import CreateGroupModal from '../components/CreateGroupModal';
 import SearchDrawer from '../components/SearchDrawer';
 
-const socket = io({ withCredentials: true });
+// 🚀 Force native WebSockets explicitly, dropping polling fallback crash loops
+const socket = io({
+  withCredentials: true,
+  transports: ['websocket'],
+  upgrade: false
+});
 
 function Dashboard({ username, onLogout }) {
   const [room, setRoom] = useState(null);
@@ -333,7 +337,6 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
   };
 
-  // Reusable Component Sidebar layout block configuration logic
   const renderSidebarContent = () => (
     <>
       <div className="overflow-y-auto flex-1">
@@ -397,7 +400,7 @@ function Dashboard({ username, onLogout }) {
         <span className="h-2 w-2 min-w-[8px] bg-emerald-500 rounded-full animate-pulse"></span>
       </div>
     </>
-  ); // 🌟 Closed cleanly here to isolate functional scope blocks!
+  );
 
   return (
     <div className="flex h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-300 relative overflow-hidden">
@@ -420,7 +423,6 @@ function Dashboard({ username, onLogout }) {
         
         <header className="flex items-center justify-between px-4 md:px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 gap-2">
           <div className="flex items-center gap-2 truncate">
-            {/* Mobile Nav Control Toggles */}
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">☰</button>
             {room && (
               <button onClick={() => setRoom(null)} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 mr-1 text-sm font-bold">←</button>
@@ -466,7 +468,6 @@ function Dashboard({ username, onLogout }) {
           </div>
         </header>
 
-        {/* 📱 MOBILE EXTRA OPERATIONAL ACTION BUTTON ROW */}
         {room && (
           <div className="flex sm:hidden items-center justify-start gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
             <button onClick={handleClearPersonalChat} className="text-[10px] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-3xs">🧹 Clear copy</button>
@@ -620,7 +621,6 @@ function Dashboard({ username, onLogout }) {
               </footer>
             </div>
 
-            {/* 👥 RESPONSIVE CHANNEL MEMBERS ASIDE SIDEBAR */}
             {isMembersOpen && !isPrivateDM && currentChannelObj && (
               <aside className="absolute md:static right-0 top-0 bottom-0 w-60 h-full bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col z-30 shadow-xl md:shadow-none animate-in slide-in-from-right duration-200">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -664,6 +664,5 @@ function Dashboard({ username, onLogout }) {
     </div>
   );
 }
-
 
 export default Dashboard;

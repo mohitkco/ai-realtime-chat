@@ -1,4 +1,3 @@
-// src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -76,8 +75,8 @@ function AdminDashboard() {
       }).join(' ')
     : `${padding},${chartHeight - padding} ${chartWidth - padding},${chartHeight - padding}`;
 
-  // 🧠 Smart fallback detection checking for any successful incoming state signals
-  const isGatewayHealthy = isApiOnline && (metrics.nginxStatus === 'HEALTHY' || metrics.nginxStatus === 'ACTIVE' || !metrics.nginxStatus || metrics.nginxStatus === 'CONNECTING...');
+  // 🧠 Defensively confirm data health as long as status payloads arrive without errors
+  const isGatewayHealthy = isApiOnline || metrics.nginxStatus === 'HEALTHY' || metrics.nginxStatus === 'ACTIVE';
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-6 font-sans antialiased">
