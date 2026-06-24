@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
@@ -142,20 +143,6 @@ function Dashboard({ username, onLogout }) {
         })
       );
     });
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.lang = 'en-US';
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setMessage((prev) => prev + (prev ? " " : "") + transcript);
-      };
-      recognitionRef.current = recognition;
-    }
 
     return () => {
       socket.off("receive_message");
@@ -313,8 +300,24 @@ function Dashboard({ username, onLogout }) {
     socket.emit("delete_message", { messageId, room, senderName: username });
   };
 
+  // 🎙️ Lazily instantiate the constructor on a real tap interaction to keep mobile webkit happy
   const toggleListening = () => {
-    if (!recognitionRef.current) return alert("Microphone API not supported.");
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Microphone API not supported on this mobile browser architecture.");
+
+    if (!recognitionRef.current) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage((prev) => prev + (prev ? " " : "") + transcript);
+      };
+      recognitionRef.current = recognition;
+    }
+
     isListening ? recognitionRef.current.stop() : recognitionRef.current.start();
   };
 
@@ -337,6 +340,7 @@ function Dashboard({ username, onLogout }) {
     setAiSuggestions([]);
   };
 
+  // Reusable Component Sidebar layout block configuration logic
   const renderSidebarContent = () => (
     <>
       <div className="overflow-y-auto flex-1">
